@@ -3,7 +3,8 @@
 [System.Serializable]
 public class EntityParameters
 {
-    public Rigidbody entityRigidbody;    
+    public Rigidbody entityRigidbody;
+    public MeshRenderer entityModel;   
 }
 
 public class Entity : MonoBehaviour

@@ -6,12 +6,13 @@ public class ControllableParameters
     [Header("Velocity")]
     public float maxVelocity = 1f;
 
-    [Header("Acceleration and Deceleration"), Tooltip("If this is true, all other acceleration variables are useless.")]
+    [Header("Acceleration"), Tooltip("If this is true, all acceleration values are useless.")]
     public bool accelerationIsOff;
     [Range(0f, 10f)]
     public float accelerationAmount = 1f;
     public AnimationCurve accelerationCurve;
-    [Space(10), Tooltip("If this is true, all other deceleration variables are useless.")]
+
+    [Header("Deceleration"), Tooltip("If this is true, all deceleration values are useless.")]
     public bool decelerationIsOff;
     [Range(0f, 10f)]
     public float decelerationAmount = 1f;
@@ -20,6 +21,7 @@ public class ControllableParameters
 
 public class Controllable : Entity
 {
+    #region Variables
     [SerializeField]
     private ControllableParameters m_ControllableParameters = new ControllableParameters();
     public ControllableParameters ControllablePAR { get { return m_ControllableParameters; } }
@@ -35,19 +37,22 @@ public class Controllable : Entity
     private Vector3 m_CurrentInput;
     private Vector3 m_LastDirection;
     private Vector3 m_DesiredVelocity;
+    #endregion Variables
 
     protected void Update()
     {
-        Movement();
+        RotateTowardsMovementDirection();
+        UpdateMovement();
     }
 
     protected void FixedUpdate()
     {
-        UpdateVelocity(m_LastDirection * m_VelocityMultiplier * ControllablePAR.maxVelocity);
+        SetDesiredVelocity(m_LastDirection * m_VelocityMultiplier * ControllablePAR.maxVelocity);
         ApplyForce();
     }
 
-    private void Movement()
+    #region Movement
+    private void UpdateMovement()
     {
         GetMovementInput();
 
@@ -61,6 +66,16 @@ public class Controllable : Entity
         }
 
         UpdateVelocityMultiplier();
+    }
+
+    private void GetMovementInput()
+    {
+        m_CurrentInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, 0f).normalized;
+
+        if (m_CurrentInput != Vector3.zero)
+        {
+            m_LastDirection = m_CurrentInput;
+        }
     }
 
     private void Acceleration()
@@ -127,25 +142,9 @@ public class Controllable : Entity
         m_VelocityMultiplier = m_VelocityCurve.Evaluate(m_VelocityTime);
     }
 
-    private void GetMovementInput()
+    private void SetDesiredVelocity(Vector3 force)
     {
-        m_CurrentInput = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, 0f).normalized;
-
-        if (m_CurrentInput != Vector3.zero)
-        {
-            m_LastDirection = m_CurrentInput;
-        }
-    }
-
-    private bool IsOnFloor()
-    {
-        Ray ray = new Ray(transform.position, -transform.up);
-        return Physics.Raycast(ray, 0.1f);
-    }
-
-    private void UpdateVelocity(Vector3 force)
-    {
-        m_DesiredVelocity += force; 
+        m_DesiredVelocity += force;
     }
 
     private void ApplyForce()
@@ -154,5 +153,17 @@ public class Controllable : Entity
         GetRigidbody().velocity = Vector3.ClampMagnitude(GetRigidbody().velocity, ControllablePAR.maxVelocity);
 
         m_DesiredVelocity = Vector3.zero;
+    }
+    #endregion Movement
+
+    private void RotateTowardsMovementDirection()
+    {
+        transform.eulerAngles = m_LastDirection.x == -1 ? new Vector3(0f, 180f, 0f) : Vector3.zero;
+    }
+
+    private bool IsOnFloor()
+    {
+        Ray ray = new Ray(transform.position, -transform.up);
+        return Physics.Raycast(ray, 0.1f);
     }
 }
