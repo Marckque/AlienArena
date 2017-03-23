@@ -6,13 +6,13 @@ public class ControllableParameters
     [Header("Velocity")]
     public float maxVelocity = 1f;
 
-    [Header("Acceleration and Deceleration")]
-    public bool useAcceleration;
+    [Header("Acceleration and Deceleration"), Tooltip("If this is true, all other acceleration variables are useless.")]
+    public bool accelerationIsOff;
     [Range(0f, 10f)]
     public float accelerationAmount = 1f;
     public AnimationCurve accelerationCurve;
-
-    public bool useDeceleration;
+    [Space(10), Tooltip("If this is true, all other deceleration variables are useless.")]
+    public bool decelerationIsOff;
     [Range(0f, 10f)]
     public float decelerationAmount = 1f;
     public AnimationCurve decelerationCurve;
@@ -51,61 +51,16 @@ public class Controllable : Entity
     {
         GetMovementInput();
 
-        // Uses acceleration and deceleration
-        if (ControllablePAR.useAcceleration && ControllablePAR.useDeceleration)
+        if (m_CurrentInput != Vector3.zero)
         {
-            if (m_CurrentInput != Vector3.zero)
-            {
-                Acceleration();
-            }
-            else
-            {
-                Deceleration();
-            }
-
-            UpdateVelocityMultiplier();
+            Acceleration();
         }
-        // Uses acceleration only
-        else if (ControllablePAR.useAcceleration)
-        {
-            if (m_CurrentInput != Vector3.zero)
-            {
-                Acceleration();
-                UpdateVelocityMultiplier();
-            }
-            else
-            {
-                m_AccelerationTime = 0f;
-                m_VelocityMultiplier = 0f;
-            }
-        }
-        // Uses deceleration only
-        else if (ControllablePAR.useDeceleration)
-        {
-            if (GetRigidbody().velocity != Vector3.zero && m_CurrentInput == Vector3.zero)
-            {
-                Deceleration();
-                UpdateVelocityMultiplier();
-            }
-            else
-            {
-                m_DecelerationTime = 0f;
-                m_VelocityMultiplier = m_LastDirection.x;
-            }
-        }
-        // Neither use acceleration nor deceleration
         else
         {
-            if (m_CurrentInput != Vector3.zero)
-            {
-                m_LastDirection = m_CurrentInput;
-                m_VelocityMultiplier = 1f;
-            }
-            else
-            {
-                m_VelocityMultiplier = 0f;
-            }
+            Deceleration();
         }
+
+        UpdateVelocityMultiplier();
     }
 
     private void Acceleration()
@@ -122,7 +77,14 @@ public class Controllable : Entity
 
         if (m_AccelerationTime < 1f)
         {
-            m_AccelerationTime += Time.deltaTime * ControllablePAR.accelerationAmount;
+            if (ControllablePAR.accelerationIsOff)
+            {
+                m_AccelerationTime = 1f;
+            }
+            else
+            {
+                m_AccelerationTime += Time.deltaTime * ControllablePAR.accelerationAmount;
+            }
         }
         else
         {
@@ -144,7 +106,14 @@ public class Controllable : Entity
 
         if (m_DecelerationTime < 1f)
         {
-            m_DecelerationTime += Time.deltaTime * ControllablePAR.decelerationAmount;
+            if (ControllablePAR.decelerationIsOff)
+            {
+                m_DecelerationTime = 1f;
+            }
+            else
+            {
+                m_DecelerationTime += Time.deltaTime * ControllablePAR.decelerationAmount;
+            }
         }
         else
         {
