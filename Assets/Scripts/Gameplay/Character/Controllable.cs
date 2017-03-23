@@ -26,6 +26,8 @@ public class Controllable : Entity
 
     [Header("Movement")]
     private AnimationCurve m_VelocityCurve;
+    private bool m_InitialiseAcceleration = true;
+    private bool m_InitialiseDeceleration;
     private float m_AccelerationTime;
     private float m_DecelerationTime;
     private float m_VelocityTime;
@@ -108,16 +110,46 @@ public class Controllable : Entity
 
     private void Acceleration()
     {
+        if (m_InitialiseAcceleration)
+        {
+            m_AccelerationTime = 1f - m_DecelerationTime;
+            m_InitialiseAcceleration = false;
+            m_InitialiseDeceleration = true;
+        }
+
         m_DecelerationTime = 0f;
         m_VelocityCurve = ControllablePAR.accelerationCurve;
-        m_AccelerationTime += Time.deltaTime;
+
+        if (m_AccelerationTime < 1f)
+        {
+            m_AccelerationTime += Time.deltaTime * ControllablePAR.accelerationAmount;
+        }
+        else
+        {
+            m_AccelerationTime = 1f;
+        }
     }
 
     private void Deceleration()
     {
+        if (m_InitialiseDeceleration)
+        {
+            m_DecelerationTime = 1f - m_AccelerationTime;
+            m_InitialiseAcceleration = true;
+            m_InitialiseDeceleration = false;
+        }
+
         m_AccelerationTime = 0f;
         m_VelocityCurve = ControllablePAR.decelerationCurve;
-        m_DecelerationTime += Time.deltaTime;
+
+        if (m_DecelerationTime < 1f)
+        {
+            m_DecelerationTime += Time.deltaTime * ControllablePAR.decelerationAmount;
+        }
+        else
+        {
+            m_DecelerationTime = 1f;
+        }
     }
 
     private void UpdateVelocityMultiplier()
