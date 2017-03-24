@@ -4,7 +4,8 @@
 public class EntityParameters
 {
     public Rigidbody entityRigidbody;
-    public MeshRenderer entityModel;   
+    public MeshRenderer entityModel;
+    public LayerMask slope;
 }
 
 public class Entity : MonoBehaviour
@@ -13,7 +14,7 @@ public class Entity : MonoBehaviour
     private EntityParameters m_EntityParameters = new EntityParameters();
     public EntityParameters EntityPAR { get { return m_EntityParameters; } }
 
-    protected void Awake()
+    protected virtual void Awake()
     {
         SetRigidbody();
     }

@@ -3,7 +3,7 @@
 [System.Serializable]
 public class ControllableParameters
 {
-    [Header("Velocity")]
+    [Header("--- Movement")]
     public float maxVelocity = 1f;
 
     [Header("Acceleration"), Tooltip("If this is true, all acceleration values are useless.")]
@@ -17,10 +17,19 @@ public class ControllableParameters
     [Range(0f, 10f)]
     public float decelerationAmount = 1f;
     public AnimationCurve decelerationCurve;
+
+    [Header("Jump")]
+    public float jumpHeight = 1f;
+
+    public LayerMask slope;
 }
 
 public class Controllable : Entity
 {
+    private const float MAX_VELOCITY_MULTIPLIER = 0.01f; // So that we can work with more comfortable variables
+    private const float SLOPE_RAY_OFFSET = 0.4f;
+    private const float SLOPE_RAY_LENGTH = 0.6f;
+
     #region Variables
     [SerializeField]
     private ControllableParameters m_ControllableParameters = new ControllableParameters();
@@ -39,8 +48,20 @@ public class Controllable : Entity
     private Vector3 m_DesiredVelocity;
     #endregion Variables
 
+    protected override void Awake()
+    {
+        base.Awake();
+
+        ControllablePAR.maxVelocity *= MAX_VELOCITY_MULTIPLIER;
+    }
+
     protected void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            GetRigidbody().velocity = new Vector3(0f, ControllablePAR.jumpHeight, 0f);
+        }
+
         RotateTowardsMovementDirection();
         UpdateMovement();
     }
@@ -75,6 +96,28 @@ public class Controllable : Entity
         if (m_CurrentInput != Vector3.zero)
         {
             m_LastDirection = m_CurrentInput;
+
+            GetSlope();
+        }
+    }
+
+    private void GetSlope()
+    {
+        // Set startPosition right at the back (according to its current moving direction) of the character
+        Vector3 startPosition = transform.position;
+        startPosition.x -= m_LastDirection.x * SLOPE_RAY_OFFSET;
+
+        Ray ray = new Ray(startPosition, -transform.up);
+        RaycastHit hit;
+
+        Debug.DrawRay(ray.origin, ray.direction * SLOPE_RAY_LENGTH, Color.red);
+
+        if (Physics.Raycast(ray, out hit, SLOPE_RAY_LENGTH))
+        {
+            if (hit.collider)
+            {
+                m_LastDirection = m_LastDirection.x * hit.transform.right;
+            }
         }
     }
 
@@ -149,12 +192,7 @@ public class Controllable : Entity
 
     private void ApplyForce()
     {
-        float yVelocity = GetRigidbody().velocity.y;
-
-        GetRigidbody().velocity = m_DesiredVelocity;
-        GetRigidbody().velocity = Vector3.ClampMagnitude(GetRigidbody().velocity, ControllablePAR.maxVelocity);
-
-        GetRigidbody().velocity = new Vector3(GetRigidbody().velocity.x, yVelocity, 0f);
+        GetRigidbody().MovePosition(transform.position + m_DesiredVelocity);
 
         m_DesiredVelocity = Vector3.zero;
     }
@@ -162,7 +200,7 @@ public class Controllable : Entity
 
     private void RotateTowardsMovementDirection()
     {
-        transform.eulerAngles = m_LastDirection.x == -1 ? new Vector3(0f, 180f, 0f) : Vector3.zero;
+        transform.eulerAngles = m_LastDirection.x < 0 ? new Vector3(0f, 180f, 0f) : Vector3.zero;
     }
 
     private bool IsOnFloor()
