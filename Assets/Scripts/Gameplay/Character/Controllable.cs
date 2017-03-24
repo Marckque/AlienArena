@@ -21,6 +21,7 @@ public class ControllableParameters
     [Header("Jump")]
     public float jumpHeight = 1f;
 
+    [Header("--- Layers")]
     public LayerMask slope;
 }
 
