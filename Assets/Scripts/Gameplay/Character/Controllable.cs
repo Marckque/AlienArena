@@ -149,8 +149,12 @@ public class Controllable : Entity
 
     private void ApplyForce()
     {
+        float yVelocity = GetRigidbody().velocity.y;
+
         GetRigidbody().velocity = m_DesiredVelocity;
         GetRigidbody().velocity = Vector3.ClampMagnitude(GetRigidbody().velocity, ControllablePAR.maxVelocity);
+
+        GetRigidbody().velocity = new Vector3(GetRigidbody().velocity.x, yVelocity, 0f);
 
         m_DesiredVelocity = Vector3.zero;
     }
