@@ -3,7 +3,7 @@
 [System.Serializable]
 public class ControllableParameters
 {
-    [Header("--- Movement")]
+    [Header("Movement")]
     public float maxVelocity = 1f;
 
     [Header("Acceleration"), Tooltip("If this is true, all acceleration values are useless.")]
@@ -20,9 +20,6 @@ public class ControllableParameters
 
     [Header("Jump")]
     public float jumpHeight = 1f;
-
-    [Header("--- Layers")]
-    public LayerMask slope;
 }
 
 public class Controllable : Entity

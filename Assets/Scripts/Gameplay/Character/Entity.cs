@@ -3,8 +3,11 @@
 [System.Serializable]
 public class EntityParameters
 {
+    [Header("Physics and graphics")]
     public Rigidbody entityRigidbody;
     public MeshRenderer entityModel;
+
+    [Header("Layers")]
     public LayerMask slope;
 }
 
