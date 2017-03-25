@@ -44,6 +44,9 @@ public class Controllable : Entity
     private Vector3 m_CurrentInput;
     private Vector3 m_LastDirection;
     private Vector3 m_DesiredVelocity;
+    private Ray ray;
+    private Ray rayUp;
+    private Ray rayDown;
     #endregion Variables
 
     protected override void Awake()
@@ -62,6 +65,10 @@ public class Controllable : Entity
 
         RotateTowardsMovementDirection();
         UpdateMovement();
+
+        ray = new Ray(transform.position + Vector3.up * 0.5f, transform.right);
+        rayUp = new Ray(transform.position + ExtensionMethods.CustomVectorUp(0.80f), transform.right);
+        rayDown = new Ray(transform.position + ExtensionMethods.CustomVectorUp(0.20f), transform.right);
     }
 
     protected void FixedUpdate()
@@ -94,9 +101,9 @@ public class Controllable : Entity
         if (m_CurrentInput != Vector3.zero)
         {
             m_LastDirection = m_CurrentInput;
-
-            GetSlope();
         }
+
+        GetSlope();
     }
 
     private void GetSlope()
@@ -106,6 +113,7 @@ public class Controllable : Entity
         startPosition.x -= m_LastDirection.x * SLOPE_RAY_OFFSET;
 
         Ray ray = new Ray(startPosition, -transform.up);
+
         RaycastHit hit;
 
         Debug.DrawRay(ray.origin, ray.direction * SLOPE_RAY_LENGTH, Color.red);
@@ -190,7 +198,45 @@ public class Controllable : Entity
 
     private void ApplyForce()
     {
-        GetRigidbody().MovePosition(transform.position + m_DesiredVelocity);
+        /*
+        float yVelocity = GetRigidbody().velocity.y;
+
+        GetRigidbody().velocity = m_DesiredVelocity;
+        GetRigidbody().velocity = Vector3.ClampMagnitude(GetRigidbody().velocity, ControllablePAR.maxVelocity);
+
+        GetRigidbody().velocity = new Vector3(GetRigidbody().velocity.x, yVelocity, 0f);
+        */
+
+        
+        RaycastHit hit;
+
+        Debug.DrawRay(ray.origin, ray.direction * 0.6f, Color.cyan);
+        Debug.DrawRay(rayUp.origin, rayUp.direction * 0.6f, Color.cyan);
+        Debug.DrawRay(rayDown.origin, ray.direction * 0.6f, Color.cyan);
+
+        if (Physics.Raycast(rayUp, out hit, 0.6f) || Physics.Raycast(ray, out hit, 0.6f) || Physics.Raycast(rayDown, out hit, 0.6f))
+        {
+            if (m_LastDirection.x > 0f && transform.position.x < hit.point.x)
+            {
+                Vector3 newPos = hit.point;
+                newPos.x -= 0.5f;
+                newPos.y = transform.position.y;
+                newPos.z = 0f;
+                transform.position = newPos;
+            }
+            else if (m_LastDirection.x < 0f && transform.position.x > hit.point.x)
+            {
+                Vector3 newPos = hit.point;
+                newPos.x += 0.5f;
+                newPos.y = transform.position.y;
+                newPos.z = 0f;
+                transform.position = newPos;
+            }
+        }
+        else
+        {
+            GetRigidbody().MovePosition(transform.position + m_DesiredVelocity);
+        }
 
         m_DesiredVelocity = Vector3.zero;
     }
