@@ -20,18 +20,21 @@ public class ControllableParameters
 
     [Header("Jump")]
     public float jumpHeight = 1f;
+
+    [Header("Layers")]
+    public LayerMask slope;
 }
 
 public class Controllable : Entity
 {
     private const float MAX_VELOCITY_MULTIPLIER = 0.01f; // So that we can work with more comfortable variables
     private const float SLOPE_RAY_OFFSET = 0.4f;
-    private const float SLOPE_RAY_LENGTH = 0.6f;
+    private const float RAY_LENGTH = 0.6f;
 
     #region Variables
     [SerializeField]
     private ControllableParameters m_ControllableParameters = new ControllableParameters();
-    public ControllableParameters ControllablePAR { get { return m_ControllableParameters; } }
+    public ControllableParameters pControllable { get { return m_ControllableParameters; } }
 
     [Header("Movement")]
     private AnimationCurve m_VelocityCurve;
@@ -42,38 +45,32 @@ public class Controllable : Entity
     private float m_VelocityTime;
     private float m_VelocityMultiplier;
     private Vector3 m_CurrentInput;
+    private Vector3 m_LastInput;
     private Vector3 m_LastDirection;
     private Vector3 m_DesiredVelocity;
-    private Ray ray;
-    private Ray rayUp;
-    private Ray rayDown;
     #endregion Variables
 
     protected override void Awake()
     {
         base.Awake();
 
-        ControllablePAR.maxVelocity *= MAX_VELOCITY_MULTIPLIER;
+        pControllable.maxVelocity *= MAX_VELOCITY_MULTIPLIER;
     }
 
-    protected void Update()
+    protected virtual void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            GetRigidbody().velocity = new Vector3(0f, ControllablePAR.jumpHeight, 0f);
+            GetRigidbody().velocity = new Vector3(0f, pControllable.jumpHeight, 0f);
         }
 
         RotateTowardsMovementDirection();
         UpdateMovement();
-
-        ray = new Ray(transform.position + Vector3.up * 0.5f, transform.right);
-        rayUp = new Ray(transform.position + ExtensionMethods.CustomVectorUp(0.80f), transform.right);
-        rayDown = new Ray(transform.position + ExtensionMethods.CustomVectorUp(0.20f), transform.right);
     }
 
     protected void FixedUpdate()
     {
-        SetDesiredVelocity(m_LastDirection * m_VelocityMultiplier * ControllablePAR.maxVelocity);
+        SetDesiredVelocity(m_LastDirection * m_VelocityMultiplier * pControllable.maxVelocity);
         ApplyForce();
     }
 
@@ -100,7 +97,8 @@ public class Controllable : Entity
 
         if (m_CurrentInput != Vector3.zero)
         {
-            m_LastDirection = m_CurrentInput;
+            m_LastInput = m_CurrentInput;
+            m_LastDirection = m_LastInput;
         }
 
         GetSlope();
@@ -109,21 +107,38 @@ public class Controllable : Entity
     private void GetSlope()
     {
         // Set startPosition right at the back (according to its current moving direction) of the character
-        Vector3 startPosition = transform.position;
-        startPosition.x -= m_LastDirection.x * SLOPE_RAY_OFFSET;
+        Vector3 startPosition = transform.position + ExtensionMethods.Up(0.1f);
+        Vector3 startPositionF = startPosition;
+
+        startPosition.x -= Mathf.Sign(m_CurrentInput.x) * SLOPE_RAY_OFFSET;
+        startPositionF.x += Mathf.Sign(m_CurrentInput.x) * SLOPE_RAY_OFFSET;
 
         Ray ray = new Ray(startPosition, -transform.up);
+        Ray rayF = new Ray(startPositionF, -transform.up);
+        Debug.DrawRay(rayF.origin, rayF.direction * RAY_LENGTH, Color.red, 0.1f);
 
         RaycastHit hit;
 
-        Debug.DrawRay(ray.origin, ray.direction * SLOPE_RAY_LENGTH, Color.red);
-
-        if (Physics.Raycast(ray, out hit, SLOPE_RAY_LENGTH))
+        if (Physics.Raycast(ray, out hit, RAY_LENGTH) && Physics.Raycast(rayF, out hit, RAY_LENGTH))
         {
+            GetRigidbody().useGravity = true;
+            return;
+        }
+
+        if (Physics.Raycast(ray, out hit, RAY_LENGTH) || Physics.Raycast(rayF, out hit, RAY_LENGTH))
+        {
+            GetRigidbody().useGravity = false;
+
             if (hit.collider)
             {
-                m_LastDirection = m_LastDirection.x * hit.transform.right;
+                m_LastDirection = Mathf.Sign(m_LastInput.x) * hit.transform.right;
+                m_LastDirection.z = 0f;
             }
+        }
+
+        if (!Physics.Raycast(ray, out hit, RAY_LENGTH) || !Physics.Raycast(rayF, out hit, RAY_LENGTH))
+        {
+            GetRigidbody().useGravity = true;
         }
     }
 
@@ -137,17 +152,17 @@ public class Controllable : Entity
         }
 
         m_DecelerationTime = 0f;
-        m_VelocityCurve = ControllablePAR.accelerationCurve;
+        m_VelocityCurve = pControllable.accelerationCurve;
 
         if (m_AccelerationTime < 1f)
         {
-            if (ControllablePAR.accelerationIsOff)
+            if (pControllable.accelerationIsOff)
             {
                 m_AccelerationTime = 1f;
             }
             else
             {
-                m_AccelerationTime += Time.deltaTime * ControllablePAR.accelerationAmount;
+                m_AccelerationTime += Time.deltaTime * pControllable.accelerationAmount;
             }
         }
         else
@@ -166,17 +181,17 @@ public class Controllable : Entity
         }
 
         m_AccelerationTime = 0f;
-        m_VelocityCurve = ControllablePAR.decelerationCurve;
+        m_VelocityCurve = pControllable.decelerationCurve;
 
         if (m_DecelerationTime < 1f)
         {
-            if (ControllablePAR.decelerationIsOff)
+            if (pControllable.decelerationIsOff)
             {
                 m_DecelerationTime = 1f;
             }
             else
             {
-                m_DecelerationTime += Time.deltaTime * ControllablePAR.decelerationAmount;
+                m_DecelerationTime += Time.deltaTime * pControllable.decelerationAmount;
             }
         }
         else
@@ -198,25 +213,15 @@ public class Controllable : Entity
 
     private void ApplyForce()
     {
-        /*
-        float yVelocity = GetRigidbody().velocity.y;
-
-        GetRigidbody().velocity = m_DesiredVelocity;
-        GetRigidbody().velocity = Vector3.ClampMagnitude(GetRigidbody().velocity, ControllablePAR.maxVelocity);
-
-        GetRigidbody().velocity = new Vector3(GetRigidbody().velocity.x, yVelocity, 0f);
-        */
-
-        
+        Ray rayUp = new Ray(transform.position + ExtensionMethods.Up(0.9f), transform.right);
+        Ray rayDown = new Ray(transform.position + ExtensionMethods.Up(0.1f), transform.right);
+        Ray ray = new Ray(transform.position + Vector3.up * 0.5f, transform.right);
         RaycastHit hit;
 
-        Debug.DrawRay(ray.origin, ray.direction * 0.6f, Color.cyan);
-        Debug.DrawRay(rayUp.origin, rayUp.direction * 0.6f, Color.cyan);
-        Debug.DrawRay(rayDown.origin, ray.direction * 0.6f, Color.cyan);
-
-        if (Physics.Raycast(rayUp, out hit, 0.6f) || Physics.Raycast(ray, out hit, 0.6f) || Physics.Raycast(rayDown, out hit, 0.6f))
+        if (Physics.Raycast(rayUp, out hit, RAY_LENGTH) || Physics.Raycast(rayDown, out hit, RAY_LENGTH) || Physics.Raycast(ray, out hit, RAY_LENGTH))
         {
-            if (m_LastDirection.x > 0f && transform.position.x < hit.point.x)
+            // Going right
+            if (m_LastInput.x > 0f && transform.position.x < hit.point.x)
             {
                 Vector3 newPos = hit.point;
                 newPos.x -= 0.5f;
@@ -224,7 +229,8 @@ public class Controllable : Entity
                 newPos.z = 0f;
                 transform.position = newPos;
             }
-            else if (m_LastDirection.x < 0f && transform.position.x > hit.point.x)
+            // Going left
+            else if (m_LastInput.x < 0f && transform.position.x > hit.point.x)
             {
                 Vector3 newPos = hit.point;
                 newPos.x += 0.5f;

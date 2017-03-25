@@ -16,7 +16,7 @@ public static class ExtensionMethods
         return new Vector3(randomX, 0f, randomZ).normalized; 
     }
 
-    public static Vector3 CustomVectorUp(float value)
+    public static Vector3 Up(float value)
     {
         return new Vector3(0f, value, 0f);
     }
