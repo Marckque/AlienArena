@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Collections;
 
 [System.Serializable]
 public class ControllableParameters
@@ -23,13 +24,16 @@ public class ControllableParameters
 
     [Header("Layers")]
     public LayerMask slope;
+
+    [Header("Physics material")]
+    public PhysicMaterial[] physicMaterials;
 }
 
 public class Controllable : Entity
 {
     private const float MAX_VELOCITY_MULTIPLIER = 0.01f; // So that we can work with more comfortable variables
     private const float SLOPE_RAY_OFFSET = 0.4f;
-    private const float RAY_LENGTH = 0.6f;
+    private const float RAY_LENGTH = 0.5f;
 
     #region Variables
     [SerializeField]
@@ -48,24 +52,39 @@ public class Controllable : Entity
     private Vector3 m_LastInput;
     private Vector3 m_LastDirection;
     private Vector3 m_DesiredVelocity;
+
+    [Header("Other")]
+    private bool m_IsOnFloor;
+    private bool m_IsJumping;
     #endregion Variables
 
     protected override void Awake()
     {
         base.Awake();
 
-        pControllable.maxVelocity *= MAX_VELOCITY_MULTIPLIER;
+        //pControllable.physicMaterials = new PhysicMaterial[2];
+        //pControllable.maxVelocity *= MAX_VELOCITY_MULTIPLIER;
     }
 
     protected virtual void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        //m_IsOnFloor = IsOnFloor();
+
+        if (Input.GetKeyDown(KeyCode.Space) && !m_IsJumping)
         {
+            StartCoroutine(Jump());
             GetRigidbody().velocity = new Vector3(0f, pControllable.jumpHeight, 0f);
         }
 
         RotateTowardsMovementDirection();
         UpdateMovement();
+    }
+
+    private IEnumerator Jump()
+    {
+        m_IsJumping = true;
+        yield return new WaitForSeconds(0.25f);
+        m_IsJumping = false;
     }
 
     protected void FixedUpdate()
@@ -107,6 +126,26 @@ public class Controllable : Entity
     private void GetSlope()
     {
         // Set startPosition right at the back (according to its current moving direction) of the character
+
+        Vector3 startPosition = transform.position;
+        Ray ray = new Ray(startPosition, Vector3.down);
+        RaycastHit hit;
+        Debug.DrawRay(ray.origin, ray.direction, Color.red, 0.1f);
+
+        if (Physics.Raycast(ray, out hit, RAY_LENGTH))
+        {
+            if (hit.collider)
+            {
+                m_LastDirection = Mathf.Sign(m_LastInput.x) * hit.transform.right;
+            }
+
+            if (Vector3.Dot(hit.transform.right, m_LastDirection) < 0f)
+            {
+                transform.position = new Vector3(transform.position.x, hit.point.y + 0.01f, 0f);
+            }
+        }
+
+        /*
         Vector3 startPosition = transform.position + ExtensionMethods.Up(0.1f);
         Vector3 startPositionF = startPosition;
 
@@ -114,7 +153,8 @@ public class Controllable : Entity
         startPositionF.x += Mathf.Sign(m_CurrentInput.x) * SLOPE_RAY_OFFSET;
 
         Ray ray = new Ray(startPosition, -transform.up);
-        Ray rayF = new Ray(startPositionF, -transform.up);
+        Ray rayF = new Ray(startPositionF, transform.right);
+
         Debug.DrawRay(rayF.origin, rayF.direction * RAY_LENGTH, Color.red, 0.1f);
 
         RaycastHit hit;
@@ -127,7 +167,7 @@ public class Controllable : Entity
 
         if (Physics.Raycast(ray, out hit, RAY_LENGTH) || Physics.Raycast(rayF, out hit, RAY_LENGTH))
         {
-            GetRigidbody().useGravity = false;
+            //GetRigidbody().useGravity = false;
 
             if (hit.collider)
             {
@@ -135,11 +175,11 @@ public class Controllable : Entity
                 m_LastDirection.z = 0f;
             }
         }
-
         if (!Physics.Raycast(ray, out hit, RAY_LENGTH) || !Physics.Raycast(rayF, out hit, RAY_LENGTH))
         {
             GetRigidbody().useGravity = true;
         }
+        */
     }
 
     private void Acceleration()
@@ -213,25 +253,41 @@ public class Controllable : Entity
 
     private void ApplyForce()
     {
+        /*
         Ray rayUp = new Ray(transform.position + ExtensionMethods.Up(0.9f), transform.right);
+        Debug.DrawRay(rayUp.origin, rayUp.direction * rayUp.direction.magnitude, Color.green, 0.1f);
         Ray rayDown = new Ray(transform.position + ExtensionMethods.Up(0.1f), transform.right);
         Ray ray = new Ray(transform.position + Vector3.up * 0.5f, transform.right);
         RaycastHit hit;
-
         if (Physics.Raycast(rayUp, out hit, RAY_LENGTH) || Physics.Raycast(rayDown, out hit, RAY_LENGTH) || Physics.Raycast(ray, out hit, RAY_LENGTH))
+        if (Physics.Raycast(rayUp, out hit, RAY_LENGTH))
         {
             // Going right
-            if (m_LastInput.x > 0f && transform.position.x < hit.point.x)
+            if (hit.collider)
             {
-                Vector3 newPos = hit.point;
-                newPos.x -= 0.5f;
-                newPos.y = transform.position.y;
-                newPos.z = 0f;
-                transform.position = newPos;
+                if (m_LastInput.x > 0f && transform.position.x < hit.point.x || m_LastInput.x < 0f && transform.position.x > hit.point.x)
+                {
+                    pEntity.entityCollider.material = pControllable.physicMaterials[1];
+                    Vector3 newPos = hit.point;
+                    newPos.x -= 0.5f;
+                    newPos.y = transform.position.y;
+                    newPos.z = 0f;
+                    transform.position = newPos;
+                }
+                else
+                {
+                    pEntity.entityCollider.material = pControllable.physicMaterials[0];
+                    Vector3 newPos = hit.point;
+                    newPos.x += 0.5f;
+                    newPos.y = transform.position.y;
+                    newPos.z = 0f;
+                    transform.position = newPos;
+                }
             }
             // Going left
-            else if (m_LastInput.x < 0f && transform.position.x > hit.point.x)
+            else 
             {
+                pEntity.entityCollider.material = pControllable.physicMaterials[0];
                 Vector3 newPos = hit.point;
                 newPos.x += 0.5f;
                 newPos.y = transform.position.y;
@@ -239,11 +295,37 @@ public class Controllable : Entity
                 transform.position = newPos;
             }
         }
+        */
+
+        float yVelocity = GetRigidbody().velocity.y;
+
+        GetRigidbody().velocity = m_DesiredVelocity;
+        GetRigidbody().velocity = Vector3.ClampMagnitude(GetRigidbody().velocity, pControllable.maxVelocity);
+
+        GetRigidbody().velocity = new Vector3(GetRigidbody().velocity.x, yVelocity, 0f);
+
+        // Makes sure we don't move when we should not
+        /*
+        if (Mathf.Approximately(GetRigidbody().velocity.y, 0f) && Mathf.Approximately(0f, m_VelocityMultiplier) && m_CurrentInput == Vector3.zero)
+        {
+            GetRigidbody().velocity = Vector3.zero;
+            pEntity.entityCollider.material = pControllable.physicMaterials[1];
+        }
         else
         {
-            GetRigidbody().MovePosition(transform.position + m_DesiredVelocity);
+            pEntity.entityCollider.material = pControllable.physicMaterials[0];
         }
-
+        */
+        /*
+        if (m_IsOnFloor && m_CurrentInput == Vector3.zero)
+        {
+            pEntity.entityCollider.material = pControllable.physicMaterials[1];
+        }
+        else
+        {
+            pEntity.entityCollider.material = pControllable.physicMaterials[0];
+        }
+        */
         m_DesiredVelocity = Vector3.zero;
     }
     #endregion Movement
@@ -256,6 +338,16 @@ public class Controllable : Entity
     private bool IsOnFloor()
     {
         Ray ray = new Ray(transform.position, -transform.up);
-        return Physics.Raycast(ray, 0.1f);
+        RaycastHit hit;
+
+        if (!m_IsJumping && Physics.Raycast(ray, out hit, RAY_LENGTH))
+        {
+            transform.position = new Vector3(transform.position.x, hit.point.y);
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 }

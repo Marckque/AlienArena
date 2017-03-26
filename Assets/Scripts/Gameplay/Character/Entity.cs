@@ -3,8 +3,11 @@
 [System.Serializable]
 public class EntityParameters
 {
-    [Header("Physics and graphics")]
+    [Header("Physics")]
+    public Collider entityCollider;
     public Rigidbody entityRigidbody;
+
+    [Header("Graphics")]
     public MeshRenderer entityModel;
 }
 
